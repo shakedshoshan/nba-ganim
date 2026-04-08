@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:apply": "node scripts/apply-supabase-schema.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
@@ -17,6 +18,8 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.14.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20",
     "@types/react": "^19",

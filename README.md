@@ -18,6 +18,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## NBA sync (Phase 3)
+
+Server-only environment variables (never expose to the client):
+
+| Variable | Purpose |
+|----------|---------|
+| `BALLDONTLIE_API_KEY` | [BallDontLie](https://app.balldontlie.io/) API key; sent as `Authorization` header |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role — used by `/api/sync-nba-data` to bypass RLS |
+| `CRON_SECRET` | Shared secret; callers must send header `x-cron-secret` |
+| `NBA_SEASON_YEAR` | Optional; season filter for playoffs (e.g. `2025` for 2025–26). Defaults to previous calendar year |
+| `SYNC_DATE_WINDOW_DAYS` | Optional; date range width around today (default `4`, max `14`) |
+
+Seed `series` rows (team abbreviations must match the API) before sync can attach games. See `scripts/seed-playoff-series.example.sql`.
+
+Run `npm run verify:supabase` to confirm Supabase env vars and that the REST API responds (and whether `DATABASE_URL` connects for `db:apply`).
+
+GitHub Actions: configure repository secrets `SYNC_API_URL` (full URL to `/api/sync-nba-data`) and `CRON_SECRET` — see the workflow under the repo root `.github/workflows/sync-nba-data.yml`.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

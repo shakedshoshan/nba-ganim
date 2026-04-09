@@ -21,6 +21,21 @@ jobs:
             echo "Missing SYNC_API_URL or CRON_SECRET repository secrets."
             exit 1
           fi
-          curl -sfS -X POST "$SYNC_API_URL" \
+          HTTP_CODE=$(curl -sS -o sync-response.json -w "%{http_code}" -X POST "$SYNC_API_URL" \
             -H "x-cron-secret: $CRON_SECRET" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json")
+          echo "HTTP $HTTP_CODE"
+          cat sync-response.json
+          echo ""
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Request failed (e.g. 401 = wrong CRON_SECRET; 500 = server exception — check Vercel env: SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL)."
+            exit 1
+          fi
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; install jq on the runner or rely on logs above."
+            exit 1
+          fi
+          if ! jq -e '.ok == true' sync-response.json >/dev/null; then
+            echo "Sync finished with ok=false — fix errors[] (common: missing BALLDONTLIE_API_KEY on host, no rows in series table, or BallDontLie API error)."
+            exit 1
+          fi

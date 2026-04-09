@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient();
     const result = await runNbaDataSync(admin);
-    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+    // Always 200 when the handler finished; use `ok` + `errors` for operational failures
+    // (missing env, empty series, BallDontLie errors). Reserve 5xx for unexpected throws only.
+    return NextResponse.json(result, { status: 200 });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json(

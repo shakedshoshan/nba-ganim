@@ -12,6 +12,20 @@ export type SyncResult = {
   betsUpdated: number;
   skippedUnmatchedGames: number;
   errors: string[];
+  warnings: string[];
+  /** Rows upserted into `league_games` (regular + postseason). */
+  leagueGamesUpserted: number;
+  /** Games returned by BallDontLie for this run (before series matching). */
+  apiGamesFetched: number;
+  /** Games whose teams matched a `series` row. */
+  gamesMatchedToSeries: number;
+  query: {
+    seasonYear: number;
+    startDate: string;
+    endDate: string;
+    /** No filter — both RS and playoffs in the date/season window. */
+    postseasonFilter: "all";
+  };
 };
 
 type SeriesRow = {
@@ -61,13 +75,63 @@ function findSeriesForGame(
   return null;
 }
 
-function utcDateWindow(days: number): { startDate: string; endDate: string } {
+/** UTC calendar dates: short lookback + forward reach (`futureDays` from env, default 7). */
+function utcDateRange(
+  pastDays: number,
+  futureDays: number,
+): { startDate: string; endDate: string } {
   const now = Date.now();
-  const half = Math.max(1, Math.floor(days / 2));
-  const start = new Date(now - half * 86400000);
-  const end = new Date(now + (days - half) * 86400000);
+  const start = new Date(now - pastDays * 86400000);
+  const end = new Date(now + futureDays * 86400000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return { startDate: fmt(start), endDate: fmt(end) };
+}
+
+function apiGameToLeagueRow(
+  game: NBAGame,
+  seasonYear: number,
+): Record<string, unknown> {
+  const homeAbbr = game.home_team?.abbreviation
+    ? normalizeAbbrev(game.home_team.abbreviation)
+    : null;
+  const visitorAbbr = game.visitor_team?.abbreviation
+    ? normalizeAbbrev(game.visitor_team.abbreviation)
+    : null;
+
+  return {
+    id: game.id,
+    season: game.season ?? seasonYear,
+    postseason: Boolean(game.postseason),
+    start_time: game.datetime ?? null,
+    status: mapApiGameToDbStatus(game),
+    home_score: game.home_team_score ?? null,
+    away_score: game.visitor_team_score ?? null,
+    home_team_abbrev: homeAbbr,
+    visitor_team_abbrev: visitorAbbr,
+  };
+}
+
+async function upsertLeagueGames(
+  admin: SupabaseClient,
+  games: NBAGame[],
+  seasonYear: number,
+): Promise<number> {
+  if (games.length === 0) return 0;
+
+  const rows = games.map((g) => apiGameToLeagueRow(g, seasonYear));
+  const chunkSize = 100;
+  let total = 0;
+
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await admin.from("league_games").upsert(chunk, {
+      onConflict: "id",
+    });
+    if (error) throw new Error(`league_games upsert: ${error.message}`);
+    total += chunk.length;
+  }
+
+  return total;
 }
 
 function apiGameToRowDraft(
@@ -292,6 +356,17 @@ async function refreshSeriesRow(
 }
 
 export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult> {
+  const seasonYear =
+    Number(process.env.NBA_SEASON_YEAR?.trim()) ||
+    new Date().getFullYear() - 1;
+
+  /** Days forward from today (UTC); fixed 5-day lookback for recent results. */
+  const futureDays = Math.min(
+    45,
+    Math.max(1, Number(process.env.SYNC_DATE_WINDOW_DAYS) || 7),
+  );
+  const { startDate, endDate } = utcDateRange(5, futureDays);
+
   const result: SyncResult = {
     ok: true,
     gamesUpserted: 0,
@@ -300,6 +375,16 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     betsUpdated: 0,
     skippedUnmatchedGames: 0,
     errors: [],
+    warnings: [],
+    leagueGamesUpserted: 0,
+    apiGamesFetched: 0,
+    gamesMatchedToSeries: 0,
+    query: {
+      seasonYear,
+      startDate,
+      endDate,
+      postseasonFilter: "all",
+    },
   };
 
   const apiKey = getBalldontlieApiKey();
@@ -309,20 +394,9 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     return result;
   }
 
-  const seasonYear =
-    Number(process.env.NBA_SEASON_YEAR?.trim()) ||
-    new Date().getFullYear() - 1;
-
-  const windowDays = Math.min(
-    14,
-    Math.max(1, Number(process.env.SYNC_DATE_WINDOW_DAYS) || 4),
-  );
-  const { startDate, endDate } = utcDateWindow(windowDays);
-
   let apiGames: NBAGame[] = [];
   try {
     apiGames = await fetchAllGames(apiKey, {
-      postseason: true,
       seasons: [seasonYear],
       startDate,
       endDate,
@@ -334,14 +408,33 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     return result;
   }
 
+  result.apiGamesFetched = apiGames.length;
+
+  try {
+    result.leagueGamesUpserted = await upsertLeagueGames(
+      admin,
+      apiGames,
+      seasonYear,
+    );
+  } catch (e) {
+    result.ok = false;
+    result.errors.push(e instanceof Error ? e.message : String(e));
+    return result;
+  }
+
   const { data: seriesList, error: seriesErr } = await admin
     .from("series")
     .select("*");
 
-  if (seriesErr || !seriesList?.length) {
+  if (seriesErr) {
     result.ok = false;
-    result.errors.push(
-      seriesErr?.message ?? "No series rows in DB (seed playoff series first).",
+    result.errors.push(seriesErr.message);
+    return result;
+  }
+
+  if (!seriesList?.length) {
+    result.warnings.push(
+      "No series rows in DB; playoff `games` sync and bet settlement skipped.",
     );
     return result;
   }
@@ -361,6 +454,8 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     bySeriesApi.set(s.id, list);
     affected.add(s.id);
   }
+
+  result.gamesMatchedToSeries = apiGames.length - result.skippedUnmatchedGames;
 
   try {
     for (const seriesId of affected) {

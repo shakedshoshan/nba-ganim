@@ -1,5 +1,5 @@
 /**
- * Applies supabase/migrations/20260408120000_initial_schema.sql to your hosted project.
+ * Applies all SQL files in supabase/migrations/ (sorted by filename) to your hosted project.
  *
  * Option A — direct Postgres (recommended):
  *   Add to my-app/.env:
@@ -23,15 +23,26 @@ const root = path.join(__dirname, "..");
 dotenv.config({ path: path.join(root, ".env") });
 dotenv.config({ path: path.join(root, ".env.local") });
 
-const migrationPath = path.join(
-  root,
-  "supabase",
-  "migrations",
-  "20260408120000_initial_schema.sql",
-);
+const migrationsDir = path.join(root, "supabase", "migrations");
 
-function readSql() {
-  return fs.readFileSync(migrationPath, "utf8");
+function listMigrationFiles() {
+  return fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+}
+
+function readAllMigrationsSql() {
+  const files = listMigrationFiles();
+  if (files.length === 0) {
+    throw new Error(`No .sql files in ${migrationsDir}`);
+  }
+  return files
+    .map((f) => {
+      const full = path.join(migrationsDir, f);
+      return `-- --- ${f} ---\n${fs.readFileSync(full, "utf8")}`;
+    })
+    .join("\n\n");
 }
 
 function projectRefFromUrl(url) {
@@ -50,7 +61,7 @@ async function runViaDatabaseUrl() {
   });
   await client.connect();
   try {
-    await client.query(readSql());
+    await client.query(readAllMigrationsSql());
   } finally {
     await client.end();
   }
@@ -71,7 +82,7 @@ async function runViaManagementApi() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: readSql() }),
+      body: JSON.stringify({ query: readAllMigrationsSql() }),
     },
   );
 
@@ -87,6 +98,13 @@ async function main() {
   if (await runViaDatabaseUrl()) return;
   if (await runViaManagementApi()) return;
 
+  let migrationList = "";
+  try {
+    migrationList = listMigrationFiles().join(", ");
+  } catch {
+    migrationList = "(unreadable)";
+  }
+
   console.error(`
 Could not apply schema: no credentials found.
 
@@ -98,8 +116,9 @@ Add one of the following to my-app/.env (or .env.local), then run:
 2) SUPABASE_ACCESS_TOKEN — Dashboard → Account → Access Tokens (needs database_write),
    plus NEXT_PUBLIC_SUPABASE_URL (already set).
 
-Or open the SQL editor for your project and paste the contents of:
-  ${migrationPath}
+Or open the SQL editor for your project and paste the contents of each file in:
+  ${migrationsDir}
+  (lexicographic order: ${migrationList})
 `);
   process.exit(1);
 }

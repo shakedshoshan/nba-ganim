@@ -1,0 +1,26 @@
+# Hourly NBA playoff sync during the season. Requires repo secrets:
+#   SYNC_API_URL — full URL, e.g. https://your-app.vercel.app/api/sync-nba-data
+#   CRON_SECRET  — must match CRON_SECRET on the server (x-cron-secret header)
+name: Sync NBA data
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST sync-nba-data
+        env:
+          SYNC_API_URL: ${{ secrets.SYNC_API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SYNC_API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Missing SYNC_API_URL or CRON_SECRET repository secrets."
+            exit 1
+          fi
+          curl -sfS -X POST "$SYNC_API_URL" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json"

@@ -1,11 +1,11 @@
-# Hourly NBA playoff sync during the season. Requires repo secrets:
+# NBA playoff sync every 5 hours during the season. Requires repo secrets:
 #   SYNC_API_URL — full URL, e.g. https://your-app.vercel.app/api/sync-nba-data
 #   CRON_SECRET  — must match CRON_SECRET on the server (x-cron-secret header)
 name: Sync NBA data
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */5 * * *"
   workflow_dispatch:
 
 jobs:

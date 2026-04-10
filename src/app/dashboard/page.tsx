@@ -24,6 +24,12 @@ export default async function DashboardPage() {
           </h1>
           <nav className="flex items-center gap-4 text-sm">
             <Link
+              href="/dashboard/bets"
+              className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              My bets
+            </Link>
+            <Link
               href="/"
               className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             >
@@ -47,8 +53,15 @@ export default async function DashboardPage() {
             {user?.email ?? "—"}
           </span>
         </p>
-        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-500">
-          Bracket, groups, and bets will live here in later phases.
+        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <Link
+            href="/dashboard/bets"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+          >
+            Open My bets
+          </Link>{" "}
+          to set series picks and tournament predictions. Bracket and leaderboard
+          arrive in a later phase.
         </p>
       </main>
     </div>

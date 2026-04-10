@@ -292,7 +292,17 @@ async function mergeOrderAndUpsertGames(
       },
       { onConflict: "id" },
     );
-    if (upErr) throw new Error(`games upsert ${row.id}: ${upErr.message}`);
+    if (upErr) {
+      let msg = `games upsert ${row.id}: ${upErr.message}`;
+      if (
+        /home_team_abbrev|visitor_team_abbrev/i.test(upErr.message) &&
+        /schema cache/i.test(upErr.message)
+      ) {
+        msg +=
+          " Apply migration 20260409150000_games_team_abbrevs.sql (or npm run db:apply from my-app).";
+      }
+      throw new Error(msg);
+    }
     n += 1;
   }
 

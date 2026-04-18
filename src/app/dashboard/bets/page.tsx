@@ -1,19 +1,24 @@
-import { signOut } from "@/app/auth/actions";
 import { GlobalBetsForm } from "@/components/bets/global-bets-form";
 import {
   SeriesBetCard,
   type SeriesBetCardBet,
   type SeriesBetCardSeries,
 } from "@/components/bets/series-bet-card";
+import type { SeriesGameLogRow } from "@/components/bets/series-game-log";
+import { PageContainer } from "@/components/ui/page-container";
 import type { GlobalBetType } from "@/lib/bets/constants";
 import { GLOBAL_BET_TYPES } from "@/lib/bets/constants";
+import {
+  ACTIVE_GROUP_COOKIE,
+  resolveActiveGroupId,
+} from "@/lib/groups/active-group";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "My bets | NBA Playoff Challenge",
+  title: "My bets",
 };
 
 function computeGlobalLockTime(
@@ -33,6 +38,7 @@ function formatLockLabel(iso: string | null): string | null {
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: "medium",
       timeStyle: "short",
+      timeZoneName: "short",
     }).format(new Date(iso));
   } catch {
     return iso;
@@ -58,6 +64,23 @@ export default async function DashboardBetsPage() {
     .order("round", { ascending: true })
     .order("id", { ascending: true });
 
+  const seriesIds = (seriesList ?? []).map((s) => s.id);
+  const gamesBySeries = new Map<number, SeriesGameLogRow[]>();
+  if (seriesIds.length) {
+    const { data: gameRows } = await supabase
+      .from("games")
+      .select(
+        "id, series_id, game_number, home_team_abbrev, visitor_team_abbrev, home_score, away_score, status, start_time",
+      )
+      .in("series_id", seriesIds);
+    for (const row of gameRows ?? []) {
+      const sid = row.series_id as number;
+      const list = gamesBySeries.get(sid) ?? [];
+      list.push(row as SeriesGameLogRow);
+      gamesBySeries.set(sid, list);
+    }
+  }
+
   const { data: betsRows } = await supabase
     .from("bets")
     .select("series_id, predicted_winner_id, predicted_games")
@@ -74,9 +97,33 @@ export default async function DashboardBetsPage() {
     .eq("round", 1);
 
   const globalLockIso = computeGlobalLockTime(r1Times ?? null);
+  // eslint-disable-next-line react-hooks/purity -- intentional time boundary for bet locks
   const nowMs = Date.now();
   const globalLocked =
     globalLockIso != null && new Date(globalLockIso).getTime() <= nowMs;
+
+  const { data: memberships } = await supabase
+    .from("group_members")
+    .select("group_id")
+    .eq("user_id", user.id);
+  const memberIds = (memberships ?? []).map((m) => m.group_id);
+  let activeGroupLabel: string | null = null;
+  if (memberIds.length) {
+    const { data: groupRows } = await supabase
+      .from("groups")
+      .select("id, name")
+      .in("id", memberIds);
+    const sorted = (groupRows ?? [])
+      .filter((g): g is { id: string; name: string } => Boolean(g?.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const orderedIds = sorted.map((g) => g.id);
+    const rawCookie = cookieStore.get(ACTIVE_GROUP_COOKIE)?.value;
+    const activeId = resolveActiveGroupId(rawCookie, orderedIds);
+    activeGroupLabel =
+      sorted.find((g) => g.id === activeId)?.name ??
+      sorted[0]?.name ??
+      null;
+  }
 
   const betsBySeries = new Map<number, SeriesBetCardBet>();
   for (const row of betsRows ?? []) {
@@ -97,65 +144,70 @@ export default async function DashboardBetsPage() {
   const lockTimeLabel = formatLockLabel(globalLockIso);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-black">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+    <main className="flex flex-1 flex-col py-8 sm:py-10">
+      <PageContainer className="flex flex-col gap-10">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             My bets
           </h1>
-          <nav className="flex flex-wrap items-center gap-4 text-sm">
-            <Link
-              href="/dashboard"
-              className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/"
-              className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-            >
-              Home
-            </Link>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="text-red-600 hover:text-red-700 dark:text-red-400"
+          {activeGroupLabel ? (
+            <div className="mt-3 rounded-lg border border-border bg-surface-muted px-4 py-3 text-sm text-muted">
+              Picks are per account. Standings and peer picks use your active
+              group (
+              <span className="font-medium text-foreground">
+                {activeGroupLabel}
+              </span>
+              ) on the group page. Change it from the header or{" "}
+              <Link
+                href="/dashboard/groups"
+                className="font-medium text-accent underline-offset-2 hover:underline"
               >
-                Sign out
-              </button>
-            </form>
-          </nav>
+                Groups
+              </Link>
+              .
+            </div>
+          ) : null}
         </div>
-      </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-6 py-10">
-        <GlobalBetsForm
-          initialByType={initialGlobal}
-          locked={globalLocked}
-          lockTimeLabel={lockTimeLabel}
-        />
+        <section aria-labelledby="tournament-heading">
+          <h2 id="tournament-heading" className="sr-only">
+            Tournament picks
+          </h2>
+          <GlobalBetsForm
+            initialByType={initialGlobal}
+            locked={globalLocked}
+            lockTimeLabel={lockTimeLabel}
+          />
+        </section>
 
-        <section>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <section aria-labelledby="series-heading">
+          <h2
+            id="series-heading"
+            className="text-lg font-semibold text-foreground"
+          >
             Playoff series
           </h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-muted">
             Pick the winner and series length before Game 1 of each matchup.
           </p>
 
           {seriesError ? (
-            <p className="mt-6 text-sm text-red-600 dark:text-red-400">
-              Could not load series: {seriesError.message}
-            </p>
+            <div
+              className="mt-6 rounded-xl border border-danger-muted bg-danger-muted p-4 text-sm text-danger"
+              role="alert"
+            >
+              <p className="font-medium">Could not load series</p>
+              <p className="mt-1">{seriesError.message}</p>
+            </div>
           ) : !seriesList?.length ? (
-            <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-950">
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-6 rounded-xl border border-dashed border-border bg-surface-muted p-6 text-center">
+              <p className="text-sm text-foreground">
                 No playoff series in the database yet.
               </p>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                Seed <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">series</code>{" "}
+              <p className="mt-2 text-sm text-muted">
+                Seed <code className="rounded bg-surface px-1">series</code>{" "}
                 (see{" "}
-                <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">
+                <code className="rounded bg-surface px-1">
                   scripts/seed-playoff-series.sql
                 </code>
                 ) so matchups appear here.
@@ -175,6 +227,7 @@ export default async function DashboardBetsPage() {
                       series={series}
                       existingBet={betsBySeries.get(series.id)}
                       locked={locked}
+                      games={gamesBySeries.get(series.id) ?? []}
                     />
                   </li>
                 );
@@ -182,7 +235,7 @@ export default async function DashboardBetsPage() {
             </ul>
           )}
         </section>
-      </main>
-    </div>
+      </PageContainer>
+    </main>
   );
 }

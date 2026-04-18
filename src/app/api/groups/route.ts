@@ -1,5 +1,5 @@
+import { generateInviteCodeCandidate } from "@/lib/groups/invite-code";
 import { createClient } from "@/utils/supabase/server";
-import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const invite = randomBytes(9).toString("base64url").slice(0, 12);
+    const invite = generateInviteCodeCandidate();
 
     const { data, error } = await supabase.rpc("create_group_with_owner", {
       p_name: name,

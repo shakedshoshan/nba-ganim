@@ -10,15 +10,32 @@ import {
   GLOBAL_BET_TYPES,
   type GlobalBetType,
 } from "@/lib/bets/constants";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { LockedBadge, OpenBadge } from "@/components/ui/badge";
 import { useActionState } from "react";
 
 const initialState: BetActionState = { error: null };
+
+const inputClass =
+  "mt-2 block w-full min-h-11 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted shadow-sm outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring";
 
 type Props = {
   initialByType: Partial<Record<GlobalBetType, string>>;
   locked: boolean;
   lockTimeLabel: string | null;
 };
+
+function lockCopy(lockTimeLabel: string | null, locked: boolean) {
+  if (locked) {
+    return lockTimeLabel
+      ? `Locked at first Round 1 tip-off (${lockTimeLabel} — your local time).`
+      : "Tournament picks are locked.";
+  }
+  return lockTimeLabel
+    ? `Locks at first Round 1 tip-off (${lockTimeLabel} — your local time).`
+    : "Locks when Round 1 schedule is set and the first game starts.";
+}
 
 export function GlobalBetsForm({
   initialByType,
@@ -32,72 +49,68 @@ export function GlobalBetsForm({
 
   if (locked) {
     return (
-      <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <Card className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="text-lg font-semibold text-foreground">
             Tournament picks
           </h2>
-          <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            Locked
-          </span>
+          <LockedBadge />
         </div>
-        {lockTimeLabel ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Locked at first Round 1 tip-off ({lockTimeLabel}).
-          </p>
-        ) : (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Tournament picks are locked.
-          </p>
-        )}
+        <p className="text-sm text-muted">{lockCopy(lockTimeLabel, true)}</p>
+        <p className="text-xs text-muted">
+          After lock, members of your group can see these picks on the group
+          member picks page.
+        </p>
         <ul className="space-y-3 text-sm">
           {GLOBAL_BET_TYPES.map((betType) => {
             const val = initialByType[betType];
+            const display =
+              val?.trim() && val.trim().length > 0 ? val.trim() : "No pick saved";
             return (
               <li
                 key={betType}
-                className="flex flex-col gap-0.5 border-b border-zinc-100 pb-3 last:border-0 dark:border-zinc-800"
+                className="flex flex-col gap-0.5 border-b border-border pb-3 last:border-0"
               >
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="font-medium text-foreground">
                   {GLOBAL_BET_LABELS[betType]}
                 </span>
-                <span className="text-zinc-600 dark:text-zinc-400">
-                  {val?.trim() ? val : "—"}
+                <span
+                  className={
+                    val?.trim()
+                      ? "text-muted"
+                      : "text-muted italic"
+                  }
+                >
+                  {display}
                 </span>
               </li>
             );
           })}
         </ul>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <Card className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-lg font-semibold text-foreground">
           Tournament picks
         </h2>
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-          Open
-        </span>
+        <OpenBadge />
       </div>
-      {lockTimeLabel ? (
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Locks at first Round 1 tip-off ({lockTimeLabel}).
-        </p>
-      ) : (
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Locks when Round 1 schedule is set and the first game starts.
-        </p>
-      )}
+      <p className="text-sm text-muted">{lockCopy(lockTimeLabel, false)}</p>
+      <p className="text-xs text-muted">
+        Until lock, only you can see these values. Save anytime before the first
+        Round 1 game.
+      </p>
 
-      <form action={formAction} className="mt-6 space-y-4">
+      <form action={formAction} className="mt-2 space-y-4">
         {GLOBAL_BET_TYPES.map((betType) => (
           <div key={betType}>
             <label
               htmlFor={fieldNameForGlobalBet(betType)}
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              className="text-sm font-medium text-foreground"
             >
               {GLOBAL_BET_LABELS[betType]}
             </label>
@@ -108,30 +121,26 @@ export function GlobalBetsForm({
               required
               defaultValue={initialByType[betType] ?? ""}
               placeholder="e.g. BOS or player name"
-              className="mt-2 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+              className={inputClass}
             />
           </div>
         ))}
 
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {state.error}
-          </p>
-        ) : null}
-        {state.ok ? (
-          <p className="text-sm text-emerald-700 dark:text-emerald-400">
-            Saved.
-          </p>
-        ) : null}
+        <div aria-live="polite">
+          {state.error ? (
+            <p className="text-sm text-danger" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+          {state.ok ? (
+            <p className="text-sm text-success-fg">Saved.</p>
+          ) : null}
+        </div>
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save tournament picks"}
-        </button>
+        </Button>
       </form>
-    </div>
+    </Card>
   );
 }

@@ -1,6 +1,7 @@
 import { fetchAllGames, getBalldontlieApiKey } from "./balldontlie-client";
 import type { NBAGame } from "./balldontlie-types";
 import { mapApiGameToDbStatus } from "./game-status";
+import { upsertSeriesFromPostseasonGames } from "./series-from-api-games";
 import { computeSeriesBetOutcome, normalizeAbbrev } from "./scoring";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -19,6 +20,8 @@ export type SyncResult = {
   apiGamesFetched: number;
   /** Games whose teams matched a `series` row. */
   gamesMatchedToSeries: number;
+  /** Rows inserted into `series` from postseason games when the table was empty. */
+  seriesAutoInserted: number;
   query: {
     seasonYear: number;
     startDate: string;
@@ -389,6 +392,7 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     leagueGamesUpserted: 0,
     apiGamesFetched: 0,
     gamesMatchedToSeries: 0,
+    seriesAutoInserted: 0,
     query: {
       seasonYear,
       startDate,
@@ -432,7 +436,7 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     return result;
   }
 
-  const { data: seriesList, error: seriesErr } = await admin
+  let { data: seriesList, error: seriesErr } = await admin
     .from("series")
     .select("*");
 
@@ -442,9 +446,54 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
     return result;
   }
 
+  let gamesForPlayoffs = apiGames;
+
+  if (!seriesList?.length) {
+    try {
+      const postseasonOnly = await fetchAllGames(apiKey, {
+        seasons: [seasonYear],
+        postseason: true,
+        perPage: 100,
+      });
+      if (postseasonOnly.length) {
+        await upsertLeagueGames(admin, postseasonOnly, seasonYear);
+        const { inserted } = await upsertSeriesFromPostseasonGames(
+          admin,
+          postseasonOnly,
+          seasonYear,
+        );
+        result.seriesAutoInserted = inserted;
+        if (inserted > 0) {
+          result.warnings.push(
+            `No series rows were present; inserted ${inserted} from BallDontLie postseason games (GET /nba/v1/games with seasons[]=${seasonYear} and postseason=true). The API has no separate "series" resource — rows are one per two-team matchup. Field series.round defaults to 1; update in SQL if you need correct round multipliers before wide betting.`,
+          );
+        }
+        const byId = new Map<number, NBAGame>();
+        for (const g of apiGames) byId.set(g.id, g);
+        for (const g of postseasonOnly) byId.set(g.id, g);
+        gamesForPlayoffs = [...byId.values()];
+      }
+    } catch (e) {
+      result.warnings.push(
+        `Postseason series auto-seed failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+
+    const refetched = await admin.from("series").select("*");
+    seriesList = refetched.data;
+    seriesErr = refetched.error;
+    if (seriesErr) {
+      result.ok = false;
+      result.errors.push(seriesErr.message);
+      return result;
+    }
+  }
+
   if (!seriesList?.length) {
     result.warnings.push(
-      "No series rows in DB; playoff `games` sync and bet settlement skipped.",
+      "No series rows in DB; playoff `games` sync and bet settlement skipped. When playoffs exist, run sync again with BALLDONTLIE_API_KEY — empty series triggers a postseason-only games fetch to derive rows (see series-from-api-games.ts).",
     );
     return result;
   }
@@ -453,7 +502,7 @@ export async function runNbaDataSync(admin: SupabaseClient): Promise<SyncResult>
   const bySeriesApi = new Map<number, NBAGame[]>();
   const affected = new Set<number>();
 
-  for (const g of apiGames) {
+  for (const g of gamesForPlayoffs) {
     const s = findSeriesForGame(g, seriesRows);
     if (!s) {
       result.skippedUnmatchedGames += 1;

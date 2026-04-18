@@ -1,9 +1,14 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+
+const inputClass =
+  "mt-1.5 block w-full min-h-11 rounded-lg border border-border bg-surface px-3 py-2.5 text-foreground shadow-sm outline-none transition-shadow focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring";
 
 export function LoginForm() {
   const router = useRouter();
@@ -37,28 +42,30 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <Card className="w-full max-w-md p-6 sm:p-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">
         Log in
       </h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-2 text-sm text-muted">
         NBA Playoff Challenge — join your group and place picks.
       </p>
 
-      {error ? (
-        <p
-          className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      <div aria-live="polite" className="min-h-0">
+        {error ? (
+          <p
+            className="mt-4 rounded-lg border border-danger-muted bg-danger-muted px-3 py-2.5 text-sm text-danger"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
 
       <form onSubmit={onEmailLogin} className="mt-6 space-y-4">
         <div>
           <label
             htmlFor="login-email"
-            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            className="block text-sm font-medium text-foreground"
           >
             Email
           </label>
@@ -70,13 +77,13 @@ export function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+            className={inputClass}
           />
         </div>
         <div>
           <label
             htmlFor="login-password"
-            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            className="block text-sm font-medium text-foreground"
           >
             Password
           </label>
@@ -88,19 +95,15 @@ export function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+            className={inputClass}
           />
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing in…" : "Sign in"}
-        </button>
+        </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-6 text-center text-sm text-muted">
         No account?{" "}
         <Link
           href={
@@ -108,11 +111,11 @@ export function LoginForm() {
               ? "/signup"
               : `/signup?next=${encodeURIComponent(next)}`
           }
-          className="font-medium text-red-600 hover:text-red-700 dark:text-red-400"
+          className="min-h-11 font-medium text-accent underline-offset-4 hover:underline"
         >
           Sign up
         </Link>
       </p>
-    </div>
+    </Card>
   );
 }

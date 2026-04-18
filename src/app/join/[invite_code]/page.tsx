@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -38,41 +39,39 @@ export default async function JoinInvitePage({
   const signupHref = `/signup?next=${encodeURIComponent(`/join/${inviteCode}`)}`;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 py-16 dark:bg-black">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 sm:py-16">
+      <Card className="w-full max-w-md p-6 sm:p-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Join group
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          You&apos;re invited to <span className="font-medium">{groupName}</span>
-          .
+        <p className="mt-2 text-sm text-muted">
+          You&apos;re invited to{" "}
+          <span className="font-medium text-foreground">{groupName}</span>.
         </p>
-        <p className="mt-1 font-mono text-xs text-zinc-500">
+        <p className="mt-1 font-mono text-xs text-muted">
           Code: {inviteCode}
         </p>
 
         {user ? (
           <JoinGroupForm groupId={groupId} inviteCode={inviteCode} />
         ) : (
-          <div className="mt-8 space-y-3">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Sign in to join this group.
-            </p>
+          <div className="mt-8 flex flex-col gap-3">
+            <p className="text-sm text-muted">Sign in to join this group.</p>
             <Link
               href={loginHref}
-              className="block w-full rounded-lg bg-red-600 py-2.5 text-center text-sm font-medium text-white hover:bg-red-700"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-accent text-sm font-medium text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Log in
             </Link>
             <Link
               href={signupHref}
-              className="block w-full rounded-lg border border-zinc-300 py-2.5 text-center text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border bg-surface text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Create account
             </Link>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

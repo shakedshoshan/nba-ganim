@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  ACTIVE_GROUP_COOKIE,
+  activeGroupCookieOptions,
+} from "@/lib/groups/active-group";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -36,10 +40,12 @@ export async function joinGroup(
       error.code === "23505" ||
       error.message.toLowerCase().includes("duplicate");
     if (dup) {
-      redirect("/dashboard");
+      cookieStore.set(ACTIVE_GROUP_COOKIE, groupId, activeGroupCookieOptions);
+      redirect(`/dashboard/groups/${groupId}`);
     }
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  cookieStore.set(ACTIVE_GROUP_COOKIE, groupId, activeGroupCookieOptions);
+  redirect(`/dashboard/groups/${groupId}`);
 }

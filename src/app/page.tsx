@@ -1,6 +1,8 @@
+import { AppTopBar } from "@/components/layout/app-top-bar";
+import { PageContainer } from "@/components/ui/page-container";
+import { TeamLogo } from "@/components/ui/team-logo";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
-import Link from "next/link";
 
 type LeagueGameRow = {
   id: number;
@@ -12,6 +14,21 @@ type LeagueGameRow = {
   away_score: number | null;
   postseason: boolean;
 };
+
+function formatGameWhen(iso: string | null): string {
+  if (!iso) return "TBD";
+  try {
+    return (
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZoneName: "short",
+      }).format(new Date(iso)) + " (your local time)"
+    );
+  } catch {
+    return iso;
+  }
+}
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -58,94 +75,153 @@ export default async function Home() {
   }
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <h1 className="text-4xl font-bold text-red-500">NBA Playoff Challenge</h1>
-        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-500">
-          {userEmail != null ? (
-            <>
-              Signed in as {userEmail} ·{" "}
-              <Link
-                href="/dashboard"
-                className="text-red-600 hover:underline dark:text-red-400"
-              >
-                Dashboard
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="text-red-600 hover:underline dark:text-red-400"
-              >
-                Log in
-              </Link>
-              {" · "}
-              <Link
-                href="/signup"
-                className="text-red-600 hover:underline dark:text-red-400"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
-        </p>
-        <p className="mt-6 text-zinc-600 dark:text-zinc-400">
-          {dbMessage != null
-            ? `Database: ${dbMessage}`
-            : `Series rows in Supabase: ${seriesCount}`}
-        </p>
+    <div className="flex min-h-full flex-1 flex-col bg-background">
+      <AppTopBar current="home" />
+      <main className="flex flex-1 flex-col py-8 sm:py-12">
+        <PageContainer className="flex flex-1 flex-col">
+          <header className="border-b border-border pb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              NBA Playoff Challenge
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-muted sm:text-base">
+              Private groups, series picks, and tournament predictions—scores
+              update from real games. Built for friends leagues, not cash stakes.
+            </p>
+            {userEmail != null ? (
+              <p className="mt-6 text-sm text-muted">
+                Signed in as{" "}
+                <span className="font-medium text-foreground">{userEmail}</span>
+                . Use the header to open your dashboard or picks.
+              </p>
+            ) : (
+              <p className="mt-6 text-sm text-muted">
+                New here? Use <strong className="font-medium text-foreground">Log in</strong> or{" "}
+                <strong className="font-medium text-foreground">Sign up</strong> in the header
+                above.
+              </p>
+            )}
+          </header>
 
-        <section className="mt-10 w-full border-t border-zinc-200 pt-8 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Upcoming games (next 7 days, UTC)
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Populated by sync into <code className="text-zinc-600 dark:text-zinc-400">league_games</code>.
-          </p>
-          {leagueMessage != null ? (
-            <p className="mt-4 text-sm text-amber-700 dark:text-amber-400">
-              Schedule: {leagueMessage}
+          <section className="mt-8" aria-labelledby="status-heading">
+            <h2 id="status-heading" className="text-lg font-semibold text-foreground">
+              Competition data
+            </h2>
+            {dbMessage != null ? (
+              <div
+                className="mt-4 rounded-xl border border-border bg-danger-muted p-4 text-sm text-danger"
+                role="alert"
+              >
+                <p className="font-medium">Could not load series count</p>
+                <p className="mt-1 opacity-90">{dbMessage}</p>
+                <p className="mt-2 text-xs opacity-80">
+                  Check <code className="rounded bg-surface px-1 py-0.5">.env</code>{" "}
+                  and Supabase project status.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                Playoff series rows in the database:{" "}
+                <span className="tabular-nums font-medium text-foreground">
+                  {seriesCount}
+                </span>
+              </p>
+            )}
+          </section>
+
+          <section className="mt-10 border-t border-border pt-8" aria-labelledby="schedule-heading">
+            <h2 id="schedule-heading" className="text-lg font-semibold text-foreground">
+              Upcoming games
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Next 7 days from sync. Times shown in your local timezone.
             </p>
-          ) : upcomingGames.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-500">
-              No games in this window. Run <code className="text-zinc-600 dark:text-zinc-400">POST /api/sync-nba-data</code>{" "}
-              after applying migrations.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-3 text-sm">
-              {upcomingGames.map((g) => {
-                const when = g.start_time
-                  ? new Date(g.start_time).toISOString().replace("T", " ").slice(0, 16) + " UTC"
-                  : "TBD";
-                const away = g.visitor_team_abbrev ?? "?";
-                const home = g.home_team_abbrev ?? "?";
-                const score =
-                  g.home_score != null && g.away_score != null
-                    ? `${g.away_score}–${g.home_score}`
-                    : null;
-                return (
-                  <li
-                    key={g.id}
-                    className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-                  >
-                    <div className="font-medium text-zinc-800 dark:text-zinc-200">
-                      {away} @ {home}
-                      {score != null ? (
-                        <span className="ml-2 font-normal text-zinc-500">({score})</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-zinc-500">
-                      <span>{when}</span>
-                      <span>{g.status}</span>
-                      {g.postseason ? <span>Postseason</span> : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+            {leagueMessage != null ? (
+              <div
+                className="mt-4 rounded-xl border border-border bg-surface-muted p-4 text-sm text-foreground"
+                role="alert"
+              >
+                <p className="font-medium">Schedule could not be loaded</p>
+                <p className="mt-1 text-muted">{leagueMessage}</p>
+              </div>
+            ) : upcomingGames.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-dashed border-border bg-surface-muted p-4 text-sm text-muted">
+                <p>No games in this window yet.</p>
+                <p className="mt-2">
+                  After migrations, run{" "}
+                  <code className="rounded bg-surface px-1 py-0.5 text-foreground">
+                    POST /api/sync-nba-data
+                  </code>{" "}
+                  to populate the schedule mirror.
+                </p>
+              </div>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {upcomingGames.map((g) => {
+                  const away = g.visitor_team_abbrev ?? "?";
+                  const home = g.home_team_abbrev ?? "?";
+                  const score =
+                    g.home_score != null && g.away_score != null
+                      ? `${g.away_score}–${g.home_score}`
+                      : null;
+                  const isLive =
+                    typeof g.status === "string" &&
+                    (g.status.toLowerCase().includes("live") ||
+                      g.status === "in_progress");
+                  const isFinal =
+                    typeof g.status === "string" &&
+                    g.status.toLowerCase().includes("final");
+                  return (
+                    <li
+                      key={g.id}
+                      className="rounded-xl border border-border bg-surface p-4 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 font-medium text-foreground">
+                      <span className="inline-flex items-center gap-2">
+                        <TeamLogo abbrev={away} size={32} />
+                        <span className="tabular-nums">{away}</span>
+                      </span>
+                      <span className="text-muted">@</span>
+                      <span className="inline-flex items-center gap-2">
+                        <TeamLogo abbrev={home} size={32} />
+                        <span className="tabular-nums">{home}</span>
+                      </span>
+                          {score != null ? (
+                            <span className="ml-2 tabular-nums text-muted">
+                              {score}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
+                          {isLive ? (
+                            <>
+                              <span className="size-1.5 rounded-full bg-success-fg" aria-hidden />
+                              <span className="text-success-fg">Live</span>
+                            </>
+                          ) : isFinal ? (
+                            <>
+                              <span aria-hidden>Final</span>
+                            </>
+                          ) : (
+                            <span>{g.status}</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs text-muted">
+                        {formatGameWhen(g.start_time)}
+                        {g.postseason ? (
+                          <span className="ml-2 rounded bg-surface-muted px-1.5 py-0.5 text-foreground">
+                            Postseason
+                          </span>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </PageContainer>
       </main>
     </div>
   );

@@ -1,10 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { SeriesGameLog, type SeriesGameLogRow } from "@/components/bets/series-game-log";
+import { TeamLogo } from "@/components/ui/team-logo";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { LockedBadge, OpenBadge } from "@/components/ui/badge";
+import { SegmentedGames } from "@/components/ui/segmented-games";
+import { WinnerTiles } from "@/components/ui/winner-tiles";
 import {
   saveSeriesBet,
   type BetActionState,
 } from "@/app/dashboard/bets/actions";
+import { useActionState } from "react";
 
 const initialState: BetActionState = { error: null };
 
@@ -29,136 +36,138 @@ type Props = {
   series: SeriesBetCardSeries;
   existingBet: SeriesBetCardBet | undefined;
   locked: boolean;
+  games: SeriesGameLogRow[];
 };
 
 function scoreLine(s: SeriesBetCardSeries) {
   return `${s.team_home} ${s.home_wins} — ${s.away_wins} ${s.team_away}`;
 }
 
-export function SeriesBetCard({ series, existingBet, locked }: Props) {
+function formatSeriesLockLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  try {
+    return (
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZoneName: "short",
+      }).format(new Date(iso)) + " (your local time)"
+    );
+  } catch {
+    return iso;
+  }
+}
+
+export function SeriesBetCard({ series, existingBet, locked, games }: Props) {
   const [state, formAction, pending] = useActionState(saveSeriesBet, initialState);
+  const lockLabel = formatSeriesLockLabel(series.game_1_start_time);
 
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <Card as="article" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Round {series.round}
           </p>
-          <h3 className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            {series.team_home} vs {series.team_away}
+          <h3 className="mt-1 flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
+            <span className="inline-flex items-center gap-2">
+              <TeamLogo abbrev={series.team_home} size={36} />
+              {series.team_home}
+            </span>
+            <span className="text-muted">vs</span>
+            <span className="inline-flex items-center gap-2">
+              <TeamLogo abbrev={series.team_away} size={36} />
+              {series.team_away}
+            </span>
           </h3>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {scoreLine(series)}
-            <span className="ml-2 text-zinc-400">· {series.status}</span>
+          <p className="mt-1 text-sm text-muted">
+            <span className="tabular-nums text-foreground">{scoreLine(series)}</span>
+            <span className="ml-2">· {series.status}</span>
           </p>
         </div>
-        <span
-          className={
-            locked
-              ? "shrink-0 rounded-full bg-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-              : "shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-          }
-        >
-          {locked ? "Locked" : "Open"}
-        </span>
+        {locked ? <LockedBadge /> : <OpenBadge />}
       </div>
 
+      <SeriesGameLog
+        bracketHome={series.team_home}
+        bracketAway={series.team_away}
+        games={games}
+      />
+
       {locked ? (
-        <div className="mt-4 rounded-lg bg-zinc-50 p-4 dark:bg-zinc-900/60">
+        <div className="rounded-lg border border-border bg-surface-muted/80 p-4">
+          {lockLabel ? (
+            <p className="text-xs text-muted">
+              Locked at Game 1 tip-off:{" "}
+              <span className="font-medium text-foreground">{lockLabel}</span>
+            </p>
+          ) : (
+            <p className="text-xs text-muted">
+              Locked — Game 1 time not set in data (picks stay closed until it
+              is).
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted">
+            After tip-off, members of your group can see this pick on the group
+            leaderboard and member picks pages.
+          </p>
           {existingBet ? (
-            <p className="text-sm text-zinc-800 dark:text-zinc-200">
+            <p className="mt-3 text-sm text-foreground">
               Your pick:{" "}
               <span className="font-medium">{existingBet.predicted_winner_id}</span>{" "}
               in{" "}
-              <span className="font-medium">{existingBet.predicted_games}</span>{" "}
+              <span className="tabular-nums font-medium">
+                {existingBet.predicted_games}
+              </span>{" "}
               games
             </p>
           ) : (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              No pick saved before lock.
-            </p>
+            <p className="mt-3 text-sm text-muted">No pick saved before lock.</p>
           )}
         </div>
       ) : (
-        <form action={formAction} className="mt-4 space-y-4">
+        <form action={formAction} className="space-y-4">
           <input type="hidden" name="seriesId" value={String(series.id)} />
 
-          <fieldset>
-            <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Series winner
-            </legend>
-            <div className="mt-2 flex flex-wrap gap-4">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="predictedWinner"
-                  value={series.team_home}
-                  defaultChecked={
-                    existingBet?.predicted_winner_id === series.team_home
-                  }
-                  required
-                  className="h-4 w-4 border-zinc-300 text-zinc-900 dark:border-zinc-600"
-                />
-                {series.team_home}
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="predictedWinner"
-                  value={series.team_away}
-                  defaultChecked={
-                    existingBet?.predicted_winner_id === series.team_away
-                  }
-                  required
-                  className="h-4 w-4 border-zinc-300 text-zinc-900 dark:border-zinc-600"
-                />
-                {series.team_away}
-              </label>
-            </div>
-          </fieldset>
+          {lockLabel ? (
+            <p className="text-sm text-muted">
+              Locks at Game 1 tip-off:{" "}
+              <span className="font-medium text-foreground">{lockLabel}</span>
+            </p>
+          ) : null}
+          <p className="text-xs text-muted">
+            Until then, only you can see this pick. After tip-off, your group can
+            see it.
+          </p>
 
-          <div>
-            <label
-              htmlFor={`games-${series.id}`}
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              Series length (games)
-            </label>
-            <select
-              id={`games-${series.id}`}
-              name="predictedGames"
-              required
-              defaultValue={existingBet?.predicted_games ?? 4}
-              className="mt-2 block w-full max-w-xs rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value={4}>4 games</option>
-              <option value={5}>5 games</option>
-              <option value={6}>6 games</option>
-              <option value={7}>7 games</option>
-            </select>
+          <WinnerTiles
+            name="predictedWinner"
+            teamHome={series.team_home}
+            teamAway={series.team_away}
+            defaultWinner={existingBet?.predicted_winner_id}
+          />
+
+          <SegmentedGames
+            name="predictedGames"
+            defaultValue={existingBet?.predicted_games ?? 4}
+          />
+
+          <div aria-live="polite">
+            {state.error ? (
+              <p className="text-sm text-danger" role="alert">
+                {state.error}
+              </p>
+            ) : null}
+            {state.ok ? (
+              <p className="text-sm text-success-fg">Saved.</p>
+            ) : null}
           </div>
 
-          {state.error ? (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-              {state.error}
-            </p>
-          ) : null}
-          {state.ok ? (
-            <p className="text-sm text-emerald-700 dark:text-emerald-400">
-              Saved.
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-          >
+          <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save pick"}
-          </button>
+          </Button>
         </form>
       )}
-    </article>
+    </Card>
   );
 }

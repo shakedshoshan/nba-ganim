@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --surface: #ffffff;
+  --surface-muted: #fafafa;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --success-bg: #dcfce7;
+  --success-fg: #14532d;
+  --info-bg: #e0e7ff;
+  --info-fg: #312e81;
+  --danger: #b91c1c;
+  --danger-muted: #fecaca;
+  --ring: #2563eb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success-bg: var(--success-bg);
+  --color-success-fg: var(--success-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-danger: var(--danger);
+  --color-danger-muted: var(--danger-muted);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #09090b;
+    --foreground: #fafafa;
+    --surface: #18181b;
+    --surface-muted: #27272a;
+    --border: #3f3f46;
+    --muted: #a1a1aa;
+    --accent: #3b82f6;
+    --accent-foreground: #ffffff;
+    --success-bg: #052e16;
+    --success-fg: #bbf7d0;
+    --info-bg: #1e1b4b;
+    --info-fg: #c7d2fe;
+    --danger: #f87171;
+    --danger-muted: #450a0a;
+    --ring: #60a5fa;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Strong default focus ring for native controls not wrapped in our Button */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

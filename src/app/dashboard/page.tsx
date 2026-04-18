@@ -67,6 +67,16 @@ export default async function DashboardPage() {
               </span>
             </Link>
           </li>
+          <li>
+            <Link href="/dashboard/settings" className={cardLink}>
+              <span className="text-base font-semibold text-foreground">
+                Profile settings
+              </span>
+              <span className="mt-1 text-sm text-muted">
+                Name, username, favorite group
+              </span>
+            </Link>
+          </li>
         </ul>
 
         <Card className="mt-8 p-4 sm:p-5">

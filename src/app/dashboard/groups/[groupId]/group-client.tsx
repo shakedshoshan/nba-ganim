@@ -8,8 +8,7 @@ import {
 } from "@/app/dashboard/groups/actions";
 import type { GroupActionState } from "@/app/dashboard/groups/actions";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useState, useTransition } from "react";
 
 export function CopyJoinUrlButton({ joinUrl }: { joinUrl: string }) {
   const [pending, startTransition] = useTransition();
@@ -22,11 +21,12 @@ export function CopyJoinUrlButton({ joinUrl }: { joinUrl: string }) {
   }, [copied]);
 
   return (
-    <div className="flex flex-col gap-1">
-      <button
+    <div className="flex w-full flex-col gap-2 sm:w-auto">
+      <Button
         type="button"
+        variant="primary"
         disabled={pending}
-        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="w-full min-h-11 sm:w-auto"
         onClick={() => {
           startTransition(() => {
             void navigator.clipboard.writeText(joinUrl).then(() => {
@@ -36,8 +36,8 @@ export function CopyJoinUrlButton({ joinUrl }: { joinUrl: string }) {
         }}
       >
         {pending ? "Copying…" : "Copy join link"}
-      </button>
-      <p className="min-h-5 text-xs text-muted" aria-live="polite">
+      </Button>
+      <p className="min-h-5 text-center text-xs text-muted sm:text-left" aria-live="polite">
         {copied ? "Join link copied to clipboard." : null}
       </p>
     </div>
@@ -50,16 +50,17 @@ export function RegenerateInviteButton({ groupId }: { groupId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-1">
-      <button
+    <div className="flex w-full flex-col gap-2 sm:w-auto">
+      <Button
         type="button"
+        variant="secondary"
         disabled={pending}
-        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface-muted px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="w-full min-h-11 sm:w-auto"
         onClick={() => {
           setError(null);
           if (
             !window.confirm(
-              "Regenerating creates a new invite code. Old links will stop working. Continue?",
+              "This creates a new invite link. Anyone using the old link will not be able to join. Continue?",
             )
           ) {
             return;
@@ -74,10 +75,10 @@ export function RegenerateInviteButton({ groupId }: { groupId: string }) {
           });
         }}
       >
-        {pending ? "Working…" : "Regenerate invite link"}
-      </button>
+        {pending ? "Working…" : "New invite link"}
+      </Button>
       {error ? (
-        <p className="text-xs text-danger" role="alert">
+        <p className="text-center text-xs text-danger sm:text-left" role="alert">
           {error}
         </p>
       ) : null}
@@ -88,27 +89,28 @@ export function RegenerateInviteButton({ groupId }: { groupId: string }) {
 export function RemoveMemberButton({
   groupId,
   memberUserId,
-  username,
+  memberLabel,
 }: {
   groupId: string;
   memberUserId: string;
-  username: string;
+  memberLabel: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
+    <div className="flex w-full flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+      <Button
         type="button"
+        variant="danger"
         disabled={pending}
-        className="inline-flex min-h-11 min-w-18 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium text-danger transition-colors hover:bg-danger-muted/30 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="w-full min-h-11 px-4 sm:w-auto"
         onClick={() => {
           setError(null);
           if (
             !window.confirm(
-              `Remove ${username} from this group? They can rejoin with a new invite if you share one.`,
+              `Remove ${memberLabel} from this group? They can rejoin if you send a new invite link.`,
             )
           ) {
             return;
@@ -123,10 +125,10 @@ export function RemoveMemberButton({
           });
         }}
       >
-        {pending ? "…" : "Remove"}
-      </button>
+        {pending ? "Removing…" : "Remove from group"}
+      </Button>
       {error ? (
-        <p className="max-w-48 text-right text-xs text-danger" role="alert">
+        <p className="text-center text-xs text-danger sm:text-right" role="alert">
           {error}
         </p>
       ) : null}
@@ -137,7 +139,7 @@ export function RemoveMemberButton({
 const leaveInitial: GroupActionState = { error: null };
 
 export function LeaveGroupForm({ groupId }: { groupId: string }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     leaveGroupFormAction,
     leaveInitial,
   );
@@ -145,11 +147,11 @@ export function LeaveGroupForm({ groupId }: { groupId: string }) {
   return (
     <form
       action={formAction}
-      className="inline-flex flex-col items-stretch gap-1 sm:items-end"
+      className="flex w-full flex-col gap-2 sm:max-w-xs sm:self-end"
       onSubmit={(e) => {
         if (
           !window.confirm(
-            "Leave this group? You can rejoin with an invite if someone shares one.",
+            "Leave this group? You can rejoin later if someone shares a new invite link with you.",
           )
         ) {
           e.preventDefault();
@@ -157,11 +159,15 @@ export function LeaveGroupForm({ groupId }: { groupId: string }) {
       }}
     >
       <input type="hidden" name="groupId" value={groupId} />
-      <Button type="submit" variant="secondary" className="border-danger-muted text-danger">
+      <Button
+        type="submit"
+        variant="secondary"
+        className="w-full min-h-11 border-danger-muted text-danger hover:bg-danger-muted/20"
+      >
         Leave group
       </Button>
       {state.error ? (
-        <span className="text-xs text-danger" role="alert">
+        <span className="text-center text-xs text-danger sm:text-right" role="alert">
           {state.error}
         </span>
       ) : null}

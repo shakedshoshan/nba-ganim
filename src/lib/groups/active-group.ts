@@ -8,16 +8,26 @@ export const activeGroupCookieOptions = {
   maxAge: 60 * 60 * 24 * 400, // ~400 days
 };
 
-/** Prefer cookie when it is a current membership; else first listed group. */
+/**
+ * Prefer a valid cookie, else a favorite that is still a membership, else the
+ * first listed group id.
+ */
 export function resolveActiveGroupId(
   cookieValue: string | undefined,
   memberGroupIdsOrdered: string[],
+  favoriteGroupId?: string | null,
 ): string | null {
   if (memberGroupIdsOrdered.length === 0) {
     return null;
   }
   if (cookieValue && memberGroupIdsOrdered.includes(cookieValue)) {
     return cookieValue;
+  }
+  if (
+    favoriteGroupId &&
+    memberGroupIdsOrdered.includes(favoriteGroupId)
+  ) {
+    return favoriteGroupId;
   }
   return memberGroupIdsOrdered[0] ?? null;
 }

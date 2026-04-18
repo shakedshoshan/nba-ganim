@@ -22,7 +22,7 @@ export function GroupSwitcher({
   if (groups.length === 1) {
     const only = groups[0];
     return (
-      <p className="max-w-[16rem] truncate text-sm text-muted">
+      <p className="w-full truncate text-sm text-muted sm:max-w-[16rem]">
         <span className="font-medium text-foreground">Active group:</span>{" "}
         {only.name}
       </p>
@@ -30,11 +30,11 @@ export function GroupSwitcher({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label className="flex flex-wrap items-center gap-2 text-sm text-muted">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-1">
+      <label className="flex w-full flex-col gap-2 text-sm text-muted sm:flex-row sm:flex-wrap sm:items-center">
         <span className="shrink-0">Active group</span>
         <select
-          className="min-h-11 max-w-[min(100%,14rem)] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-11 w-full max-w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-56"
           disabled={pending}
           value={activeGroupId ?? groups[0].id}
           onChange={(e) => {

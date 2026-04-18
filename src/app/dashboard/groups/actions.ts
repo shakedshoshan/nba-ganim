@@ -124,8 +124,18 @@ export async function leaveGroupFormAction(
     .select("group_id")
     .eq("user_id", user.id);
 
+  const { data: profileAfter } = await supabase
+    .from("profiles")
+    .select("favorite_group_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
   const orderedIds = (remaining ?? []).map((r) => r.group_id);
-  const nextActive = resolveActiveGroupId(undefined, orderedIds);
+  const nextActive = resolveActiveGroupId(
+    undefined,
+    orderedIds,
+    profileAfter?.favorite_group_id ?? null,
+  );
   if (nextActive) {
     cookieStore.set(ACTIVE_GROUP_COOKIE, nextActive, activeGroupCookieOptions);
   } else {

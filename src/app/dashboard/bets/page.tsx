@@ -109,6 +109,12 @@ export default async function DashboardBetsPage() {
   const memberIds = (memberships ?? []).map((m) => m.group_id);
   let activeGroupLabel: string | null = null;
   if (memberIds.length) {
+    const { data: favRow } = await supabase
+      .from("profiles")
+      .select("favorite_group_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { data: groupRows } = await supabase
       .from("groups")
       .select("id, name")
@@ -118,7 +124,11 @@ export default async function DashboardBetsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
     const orderedIds = sorted.map((g) => g.id);
     const rawCookie = cookieStore.get(ACTIVE_GROUP_COOKIE)?.value;
-    const activeId = resolveActiveGroupId(rawCookie, orderedIds);
+    const activeId = resolveActiveGroupId(
+      rawCookie,
+      orderedIds,
+      favRow?.favorite_group_id ?? null,
+    );
     activeGroupLabel =
       sorted.find((g) => g.id === activeId)?.name ??
       sorted[0]?.name ??

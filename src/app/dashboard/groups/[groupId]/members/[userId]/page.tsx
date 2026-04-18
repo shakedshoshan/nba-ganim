@@ -11,6 +11,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { TeamLogo } from "@/components/ui/team-logo";
+import { profileDisplayName } from "@/lib/profiles/display-name";
 
 type PageProps = {
   params: Promise<{ groupId: string; userId: string }>;
@@ -24,10 +25,16 @@ export async function generateMetadata({
   const supabase = createClient(cookieStore);
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username")
+    .select("username, first_name, last_name")
     .eq("id", userId)
     .maybeSingle();
-  const name = profile?.username ?? "Player";
+  const name = profile
+    ? profileDisplayName({
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        username: profile.username,
+      })
+    : "Player";
   return { title: `${name} — picks` };
 }
 
@@ -99,11 +106,17 @@ export default async function GroupMemberPicksPage({ params }: PageProps) {
 
   const { data: targetProfile } = await supabase
     .from("profiles")
-    .select("username")
+    .select("username, first_name, last_name")
     .eq("id", userId)
     .maybeSingle();
 
-  const displayName = targetProfile?.username ?? userId.slice(0, 8);
+  const displayName = targetProfile
+    ? profileDisplayName({
+        first_name: targetProfile.first_name,
+        last_name: targetProfile.last_name,
+        username: targetProfile.username,
+      })
+    : userId.slice(0, 8);
 
   const { data: seriesList } = await supabase
     .from("series")

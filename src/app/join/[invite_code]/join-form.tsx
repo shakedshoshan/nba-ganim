@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { joinGroup, type JoinGroupState } from "./actions";
 
 const initial: JoinGroupState = { error: null };
@@ -22,7 +23,7 @@ export function JoinGroupForm({
   groupId: string;
   inviteCode: string;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     joinGroup.bind(null, inviteCode),
     initial,
   );
